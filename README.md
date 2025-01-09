@@ -1,5 +1,7 @@
 # README
 
+![mathfu2](https://github.com/user-attachments/assets/36fd4444-0314-47ba-9e7d-ea48529c60e7)
+
 Below are instructions on how to set up, develop, and build this extension. You can then add the built project to Chrome using the Developer Extension Dashboard.
 
 ## Cloning the Repository
