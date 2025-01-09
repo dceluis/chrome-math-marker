@@ -1,0 +1,9 @@
+# Add patterns to ignore here, one per line
+# Example:
+# *.log
+# tmp/
+
+utils/tex-svg-custom.min.js
+utils/md5.js
+
+model/*

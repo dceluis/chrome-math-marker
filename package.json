@@ -1,0 +1,24 @@
+{
+  "name": "chrome-math-marker",
+  "description": "manifest.json description",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "wxt",
+    "dev:firefox": "wxt -b firefox",
+    "build": "wxt build",
+    "build:firefox": "wxt build -b firefox",
+    "zip": "wxt zip",
+    "zip:firefox": "wxt zip -b firefox",
+    "postinstall": "wxt prepare",
+    "compile": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "localtunnel": "^2.0.2",
+    "typescript": "^5.7.3",
+    "wxt": "^0.19.23",
+    "@types/bun": "latest"
+  },
+  "module": "index.ts"
+}

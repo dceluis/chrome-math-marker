@@ -1,0 +1,436 @@
+<html>
+  <head>
+    <title>Dashboard</title>
+
+    <script src="../utils/tex-svg-custom.min.js"></script>
+
+    <script type="module">
+    let windowState = {
+      folderLoaded: false,
+      folderHandle: null
+    };
+    const sampleCsv = `
+"sqrt of 2","\\sqrt{2}"
+"square root of 16","\\sqrt{16}"
+"5 times the square root of 3","5 \\times \\sqrt{3}"
+"1 over 2","\\frac{1}{2}"
+"3 divided by 4","\\frac{3}{4}"
+"the sum of 5 and 6 divided by 2","\\frac{5 + 6}{2}"
+"2 raised to the power of 3","2^{3}"
+"x squared plus 4","x^{2} + 4"
+"7 cubed minus 5 squared","7^{3} - 5^{2}"
+"4 times the square root of x","4 \\times \\sqrt{x}"
+"the square root of (a plus b) divided by c","\\frac{\\sqrt{a + b}}{c}"
+"alpha times beta squared","\\alpha \\times \\beta^{2}"
+"pi squared over 4","\\frac{\\pi^{2}}{4}"
+"x raised to the power of (2 plus 3)","x^{2 + 3}"
+"e raised to the power of x","e^{x}"
+"square root of 9 times pi","\\sqrt{9} \\times \\pi"
+"5 raised to the power of 3 plus square root of 25","5^{3} + \\sqrt{25}"
+"theta divided by 2 times beta","\\frac{\\theta}{2} \\times \\beta"
+"quantity (x plus y) times (a minus b)","(x + y) \\times (a - b)"
+"square root of (a plus b) divided by (x minus 2)","\\frac{\\sqrt{a + b}}{x - 2}"
+"sin of x divided by cos of y","\\frac{\\sin{x}}{\\cos{y}}"
+"2 plus 3 raised to the power of 4","2 + 3^{4}"
+`
+
+    async function getLocalFolder() {
+      const options = {
+        types: [{
+          description: 'Folders',
+          accept: {'text/plain': ['.']}
+        }],
+        excludeAcceptAllOption: true,
+        multiple: false
+      };
+
+      try {
+        const folderHandle = await window.showDirectoryPicker(options);
+        console.log('Selected folder:', folderHandle);
+        await getDatasetFolders(folderHandle);
+        windowState.folderLoaded = true;
+        windowState.folderHandle = folderHandle;
+        window.dispatchEvent(new CustomEvent('folderLoaded', { detail: { folderHandle } }));
+      } catch (err) {
+        console.error('Error accessing folder:', err);
+      }
+    }
+    async function getDatasetFolders(folderHandle) {
+      let textFolder = null;
+      let mathFolder = null;
+      let imageFolder = null;
+
+      for await (const entry of folderHandle.values()) {
+        if (entry.kind === 'directory') {
+          if (entry.name === 'text') {
+            textFolder = entry;
+          } else if (entry.name === 'math') {
+            mathFolder = entry;
+          } else if (entry.name === 'image') {
+            imageFolder = entry;
+          }
+        }
+      }
+
+      if (!textFolder || !mathFolder || !imageFolder) {
+        textFolder = await folderHandle.getDirectoryHandle('text', { create: true });
+        mathFolder = await folderHandle.getDirectoryHandle('math', { create: true });
+        imageFolder = await folderHandle.getDirectoryHandle('image', { create: true });
+      }
+
+      folderHandle.textFolder = textFolder;
+      folderHandle.mathFolder = mathFolder;
+      folderHandle.imageFolder = imageFolder;
+    }
+
+    async function displayTextFiles(folderHandle) {
+      const textFiles = [];
+
+      for await (const subEntry of folderHandle.textFolder.values()) {
+        if (subEntry.kind === 'file' && subEntry.name.endsWith('.txt')) {
+          const file = await subEntry.getFile();
+          const text = await file.text();
+          textFiles.push({ name: subEntry.name, content: text });
+        }
+      }
+
+      const mathFiles = [];
+
+      for await (const subEntry of folderHandle.mathFolder.values()) {
+        if (subEntry.kind === 'file' && subEntry.name.endsWith('.txt')) {
+          const file = await subEntry.getFile();
+          const text = await file.text();
+          mathFiles.push({ name: subEntry.name, content: text });
+        }
+      }
+
+      const imageFiles = [];
+
+      for await (const subEntry of folderHandle.imageFolder.values()) {
+        if (subEntry.kind === 'file' && subEntry.name.endsWith('.png')) {
+          const file = await subEntry.getFile();
+          const svgContent = await file.text();
+          imageFiles.push({ name: subEntry.name, content: svgContent, file });
+        }
+      } 
+
+      const table = document.getElementById('fileTable');
+      const tableBody = table.getElementsByTagName('tbody')[0];
+      tableBody.innerHTML = '';
+
+      textFiles.sort((a, b) => a.name.localeCompare(b.name)).forEach(async (file) => {
+        const imageFile = imageFiles.find(imageFile => imageFile.name === file.name.replace('.txt', '.png'));
+        const mathFile = mathFiles.find(mathFile => mathFile.name === file.name);
+
+        const row = tableBody.insertRow();
+        const nameCell = row.insertCell(0);
+        const contentCell = row.insertCell(1);
+        const imageCell = row.insertCell(2);
+        const mathCell = row.insertCell(3);
+
+        if (imageFile) {
+          const url = URL.createObjectURL(imageFile.file);
+          imageCell.innerHTML = `<img src="${url}" alt="${imageFile.name}" class="w-16 h-16"/>`; 
+        }
+
+        nameCell.textContent = file.name;
+        contentCell.textContent = file.content;
+        mathCell.textContent = mathFile ? mathFile.content : '';
+
+        nameCell.classList.add("py-2", "px-4", "border-b", "border-gray-300");
+        contentCell.classList.add("py-2", "px-4", "border-b", "border-gray-300");
+        imageCell.classList.add("py-2", "px-4", "border-b", "border-gray-300");
+        mathCell.classList.add("py-2", "px-4", "border-b", "border-gray-300");
+
+      });
+    };
+
+async function svgToPngBlob(svgContent) {
+  // Create a canvas element
+  const canvas = document.createElement("canvas");
+  const context = canvas.getContext("2d");
+
+  // Create a Blob from the SVG content string
+  const svgBlob = new Blob([svgContent], { type: "image/svg+xml;charset=utf-8" });
+  const url = URL.createObjectURL(svgBlob);
+
+  // Create a Promise to handle image loading
+  const img = new Image();
+  img.src = url;
+
+  await new Promise((resolve, reject) => {
+    img.onload = resolve;
+    img.onerror = reject;
+  });
+
+// Log image width and natural width
+console.log('Image Width:', img.width);
+console.log('Image Natural Width:', img.naturalWidth);
+console.log('Image Height:', img.height);
+console.log('Image Natural Height:', img.naturalHeight);
+
+  const width = img.width * 2;
+  const height = img.height * 2;
+
+  // Set canvas dimensions based on the image size
+  canvas.width = width;
+  canvas.height = height;
+
+  context.fillStyle = "white";
+  context.fillRect(0, 0, canvas.width, canvas.height);
+
+  // Draw the SVG image onto the canvas
+  context.drawImage(img, 0, 0, width, height);
+
+  // Convert the canvas to a PNG blob
+  const pngBlob = await new Promise((resolve) => {
+    canvas.toBlob(resolve, "image/png");
+  });
+
+  // Clean up the object URL
+  URL.revokeObjectURL(url);
+
+  return pngBlob;
+}
+
+    function showModal() {
+      const textEditor = document.getElementById('importEditor');
+      textEditor.value = '';
+      const modal = document.getElementById('importModal');
+      modal.classList.remove('hidden');
+    }
+
+    function handlesubmitimport(e) {
+      const textEditor = document.getElementById('importEditor');
+      const csvContent = textEditor.value;
+
+      importDataset(csvContent)
+    }
+
+    // chatgpt generated function
+    function parseCsv(input, delimiter = ',', trimWhitespace = true) {
+      const rows = [];
+      let currentRow = [];
+      let currentValue = '';
+      let insideQuotes = false;
+
+      for (let i = 0; i < input.length; i++) {
+        const char = input[i];
+        const nextChar = input[i + 1];
+
+        if (char === '"' && !insideQuotes) {
+          insideQuotes = true;  // Entering quoted value
+        } else if (char === '"' && insideQuotes) {
+          if (nextChar === '"') {
+            // Handle escaped quotes
+            currentValue += '"';
+            i++;  // Skip next quote
+          } else {
+            insideQuotes = false;  // Exiting quoted value
+          }
+        } else if (char === delimiter && !insideQuotes) {
+          // End of a value, push to the current row
+          currentRow.push(trimWhitespace ? currentValue.trim() : currentValue);
+          currentValue = '';  // Reset for the next value
+        } else if ((char === '\n' || char === '\r') && !insideQuotes) {
+          // End of a row (handle newlines and carriage returns)
+          if (currentValue || currentRow.length > 0) {
+            currentRow.push(trimWhitespace ? currentValue.trim() : currentValue);
+            rows.push(currentRow);
+            currentRow = [];
+            currentValue = '';
+          }
+          if (char === '\r' && nextChar === '\n') i++;  // Handle \r\n as one newline
+        } else {
+          currentValue += char;  // Continue building the current value
+        }
+      }
+
+      // Handle any remaining data (last row)
+      if (currentValue || currentRow.length > 0) {
+        currentRow.push(trimWhitespace ? currentValue.trim() : currentValue);
+        rows.push(currentRow);
+      }
+
+      return rows;
+    }
+
+    async function importDataset(csv) {
+      const folderHandle = windowState.folderHandle;
+
+      const textFiles = [];
+
+      for await (const subEntry of folderHandle.textFolder.values()) {
+        if (subEntry.kind === 'file' && subEntry.name.endsWith('.txt')) {
+          const file = await subEntry.getFile();
+          const text = await file.text();
+          textFiles.push({ name: subEntry.name, content: text });
+        }
+      }
+
+      const lastFileIndex = textFiles.length > 0 ? Math.max(...textFiles.map(file => parseInt(file.name.match(/\d+/)[0]))) : 0;
+
+      const rows = csv
+      .split('\n')
+      .map(row => row.split(','))
+      .filter(row => row.some(cell => cell.trim() !== ''))
+      .map(row => {
+        row[0] = row[0].replace(/^["']|["']$/g, '');
+        row[1] = row[1].replace(/^["']|["']$/g, '');
+
+        const math = row[1];
+        const svg = MathJax.tex2svg(`\\displaylines {${math.replace(/\n/g, "\\\\")}}`, { em: 12, ex: 6 }).firstElementChild;
+
+        row.push('<?xml version="1.0" encoding="UTF-8" standalone="no" ?>\n' + svg.outerHTML);
+        return row;
+      });
+
+
+      rows.forEach(async (row, index) => {
+        const newFileName = `${(lastFileIndex + index + 1).toString().padStart(3, '0')}.txt`;
+
+        const newTextFile = new Blob([row[0]], { type: 'text/plain' });
+        const newMathFile = new Blob([row[1]], { type: 'text/plain' });
+        const newImageFile = await svgToPngBlob(row[2]);
+
+        await folderHandle.imageFolder.getFileHandle(newFileName.replace('.txt', '.png'), { create: true }).then(async (fileHandle) => {
+          const writable = await fileHandle.createWritable();
+          await writable.write(newImageFile);
+          await writable.close();
+        });
+
+        await folderHandle.textFolder.getFileHandle(newFileName, { create: true }).then(async (fileHandle) => {
+          const writable = await fileHandle.createWritable();
+          await writable.write(newTextFile);
+          await writable.close();
+        });
+
+        await folderHandle.mathFolder.getFileHandle(newFileName, { create: true }).then(async (fileHandle) => {
+          const writable = await fileHandle.createWritable();
+          await writable.write(newMathFile);
+          await writable.close();
+        });
+      });
+
+      document.getElementById('importModal').classList.add('hidden');
+
+      window.dispatchEvent(new CustomEvent('folderLoaded', { detail: { folderHandle } }));
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      const accessButton = document.getElementById('accessButton');
+      accessButton.addEventListener('click', getLocalFolder);
+      importButton.addEventListener('click', showModal);
+      submitImportButton.addEventListener('click', handlesubmitimport);
+      closeModalButton.addEventListener('click', () => document.getElementById('importModal').classList.add('hidden'));
+    });
+
+    window.addEventListener('folderLoaded', (e) => {
+      const importButton = document.getElementById('importButton');
+      importButton.classList.remove('hidden');
+      displayTextFiles(e.detail.folderHandle)
+    });
+
+    function importSample(csv) {
+      const rows = csv
+      .split('\n')
+      .map(row => row.split(','))
+      .filter(row => row.some(cell => cell.trim() !== ''))
+      .map(row => {
+        row[0] = row[0].replace(/^["']|["']$/g, '');
+        row[1] = row[1].replace(/^["']|["']$/g, '');
+
+        const math = row[1];
+        const svg = MathJax.tex2svg(`\\displaylines {${math.replace(/\n/g, "\\\\")}}`, { em: 12, ex: 6 }).firstElementChild;
+
+        row.push('<?xml version="1.0" encoding="UTF-8" standalone="no" ?>\n' + svg.outerHTML);
+        return row;
+      });
+
+      const table = document.getElementById('fileTable');
+      const tableBody = table.getElementsByTagName('tbody')[0];
+      tableBody.innerHTML = '';
+
+      rows.forEach(async (row, index) => {
+        const imgBlob = await svgToPngBlob(row[2]);
+
+        const base64ImageUrl = await new Promise((resolve) => {
+          const reader = new FileReader();
+          reader.onloadend = () => resolve(reader.result);
+          reader.readAsDataURL(imgBlob);
+        });
+
+        const img = document.createElement('img');
+        img.src = base64ImageUrl;
+
+        const rowElement = tableBody.insertRow();
+        const nameCell = rowElement.insertCell(0);
+        const textCell = rowElement.insertCell(1);
+        const imageCell = rowElement.insertCell(2);
+        const mathCell = rowElement.insertCell(3);
+
+        nameCell.textContent = row[0];
+        textCell.textContent = row[1];
+        imageCell.appendChild(img);
+        mathCell.textContent = row[1]; // Assuming the math content is the same as the second column for display purposes
+
+        nameCell.classList.add("py-2", "px-4", "border-b", "border-gray-300");
+        textCell.classList.add("py-2", "px-4", "border-b", "border-gray-300");
+        imageCell.classList.add("py-2", "px-4", "border-b", "border-gray-300");
+        mathCell.classList.add("py-2", "px-4", "border-b", "border-gray-300");
+
+        rowElement.addEventListener('dblclick', async () => {
+          navigator.clipboard.writeText(base64ImageUrl).then(() => {
+            console.log('Image URL copied to clipboard!');
+          }).catch(err => {
+            console.error('Failed to copy: ', err);
+          }); 
+        });
+      });
+    }
+    importSample(sampleCsv);
+
+    </script>
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  </head>
+  <body class="bg-gray-100">
+    <div class="container mx-auto p-5">
+      <h1 class="text-3xl font-bold mb-4">Dashboard</h1>
+      <button id="accessButton" class="bg-blue-500 text-white font-semibold py-2 px-4 rounded mb-4 mr-4">Select Folder</button>
+      <button id="importButton" class="bg-green-500 text-white font-semibold py-2 px-4 rounded mb-4 hidden">Import</button>
+      <table id="fileTable" class="min-w-full min-h-64 bg-white border border-gray-300">
+        <thead>
+          <tr class="bg-gray-200 text-left border-b border-gray-300">
+            <th class="py-2 px-4">File Name</th>
+            <th class="py-2 px-4">Text</th>
+            <th class="py-2 px-4">Image</th>
+            <th class="py-2 px-4">Math</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr class="py-2 px-4 border-b border-t border-gray-300 h-20"> <td></td> <td></td> <td></td> <td></td> </tr>
+          <tr class="py-2 px-4 border-b border-gray-300 h-20"> <td></td> <td></td> <td></td> <td></td> </tr>
+          <tr class="py-2 px-4 border-b border-gray-300 h-20"> <td></td> <td></td> <td></td> <td></td> </tr>
+          <tr class="py-2 px-4 border-b border-gray-300 h-20"> <td></td> <td></td> <td></td> <td></td> </tr>
+          <tr class="py-2 px-4 border-b border-gray-300 h-20"> <td></td> <td></td> <td></td> <td></td> </tr>
+        </tbody>
+
+      </table>
+      <div class="sticky bottom-0 bg-white p-4 shadow-lg border">
+        <textarea id="textEditor" class="w-full border rounded" rows="10" cols="50"></textarea>
+      </div>
+    </div>
+
+    <div id="importModal" class="fixed inset-0 flex items-center justify-center bg-gray-800 bg-opacity-50 hidden">
+      <div class="bg-white p-5 rounded shadow-lg">
+        <h2 class="text-xl font-bold mb-4">Import Dataset</h2>
+        <textarea id="importEditor" class="border rounded w-full" rows="10" cols="50" placeholder="Enter CSV without headers: first column for raw text, second column for MathJax"></textarea>
+        <div class="mt-4">
+          <button id="submitImportButton" class="bg-blue-500 text-white font-semibold py-2 px-4 rounded">Import</button>
+          <button id="closeModalButton" class="bg-gray-300 text-black font-semibold py-2 px-4 rounded ml-2">Close</button>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

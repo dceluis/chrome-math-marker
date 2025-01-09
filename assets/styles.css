@@ -1,0 +1,120 @@
+/*
+  1. Use a more-intuitive box-sizing model.
+*/
+#marker-toolbar *, #marker-toolbar *::before, #marker-toolbar *::after {
+  box-sizing: border-box;
+}
+/*
+  2. Remove default margin
+*/
+#marker-toolbar * {
+  margin: 0;
+}
+/*
+  Typographic tweaks!
+  3. Add accessible line-height
+  4. Improve text rendering
+*/
+#marker-toolbar {
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+/*
+  5. Improve media defaults
+*/
+#marker-toolbar img, #marker-toolbar picture, #marker-toolbar video, #marker-toolbar canvas, #marker-toolbar svg {
+  display: block;
+  max-width: 100%;
+}
+/*
+  6. Remove built-in form typography styles
+*/
+#marker-toolbar input, #marker-toolbar button, #marker-toolbar textarea, #marker-toolbar select {
+  font: inherit;
+}
+/*
+  7. Avoid text overflows
+*/
+#marker-toolbar p, #marker-toolbar h1, #marker-toolbar h2, #marker-toolbar h3, #marker-toolbar h4, #marker-toolbar h5, #marker-toolbar h6 {
+  overflow-wrap: break-word;
+}
+/*
+  8. Create a root stacking context
+*/
+#marker-toolbar {
+  isolation: isolate;
+}
+
+#marker-toolbar {
+  all: initial;
+}
+
+#marker-toolbar {
+  font-family: Arial, sans-serif; /* Adding a font family */
+  position: fixed;
+  top: 320px;
+  right: 20px;
+  background-color: white;
+  border: 1px solid #ccc;
+  padding: 10px;
+  z-index: 10001;
+  box-shadow: 0 0 10px rgba(0,0,0,0.1);
+  user-select: none;
+  cursor: drag;
+}
+
+#marker-toolbar button {
+  margin: 0 5px;
+  padding: 5px 5px;
+  background-color: #f0f0f0;
+  border: 1px solid #ccc;
+  cursor: pointer;
+  display: flex;
+  justify-content: center;
+}
+
+#marker-toolbar button:hover {
+  background-color: #e0e0e0;
+}
+
+#marker-toolbar .tool.active {
+  background-color: #ddd;
+}
+
+#marker-toolbar button:disabled {
+  background-color: #f9f9f9;
+  cursor: not-allowed;
+}
+
+#marker-toolbar button:disabled img {
+  opacity: 0.5; /* Reduce icon opacity to indicate disabled state */
+}
+
+#marker-canvas {
+  margin: 0;
+  background-color: transparent;
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  pointer-events: none;
+  z-index: 9999;
+}
+
+#marker-grid {
+  margin: 0;
+  background-color: transparent;
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background-image: linear-gradient(0deg, rgba(0,0,0,0.1) 1px, transparent 1px),
+                    linear-gradient(90deg, rgba(0,0,0,0.1) 1px, transparent 1px);
+  background-size: 20px 20px; /* Change the size of the grid here */
+  pointer-events: none;
+  z-index: 9998; /* Below canvas but above other elements */
+}
